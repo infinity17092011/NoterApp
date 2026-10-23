@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SummerAI – Notes Summariser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f3f6f1; --ink:#1d2a24; --muted:#5f7068; --line:#cdd8cf; --card:#ffffff;
+  --mark:#ffe46b; --accent:#2f6f5b; --accent-ink:#ffffff; --margin:#e7a3a3; --err:#b3261e; --ok:#1f7a4d;
+  --shadow:0 1px 0 rgba(29,42,36,.04),0 8px 24px -12px rgba(29,42,36,.25);
+  --head:"Bricolage Grotesque",system-ui,sans-serif;
+  --body:"Source Serif 4",Georgia,serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#101713; --ink:#e8efe9; --muted:#93a69b; --line:#2b3a32; --card:#18231d;
+    --mark:#7a6700; --accent:#6fcfae; --accent-ink:#0f1a15; --margin:#6b3c3c; --err:#ff8a80; --ok:#7be0a8;
+    --shadow:0 1px 0 rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+*{box-sizing:border-box}
+html{color-scheme:light dark}
+body{margin:0;background:var(--paper);color:var(--ink);font:1.05rem/1.65 var(--body);
+  padding:calc(env(safe-area-inset-top,0px) + 20px) 18px calc(env(safe-area-inset-bottom,0px) + 64px)}
+main{max-width:700px;margin:0 auto}
+h1,h2,h3,button,.brand,label,input{font-family:var(--head)}
+[hidden]{display:none!important}
+
+/* Top bar */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:26px}
+.brand{font-weight:800;color:var(--accent);display:flex;align-items:center;gap:10px;font-size:1.1rem;margin:0}
+.brand svg{width:28px;height:28px}
+nav{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px}
+nav button{background:none;border:0;border-radius:8px;padding:8px 16px;font-weight:700;font-size:.95rem;color:var(--muted);cursor:pointer}
+nav button[aria-current="page"]{background:var(--accent);color:var(--accent-ink)}
+
+h1{font-size:clamp(2rem,7vw,3rem);line-height:1.05;letter-spacing:-.025em;font-weight:800;margin:0 0 12px}
+.sub{color:var(--muted);margin:0 0 26px;max-width:32em}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* Buttons and fields */
+.go{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:14px 24px;font-size:1.02rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:10px}
+.go:disabled{opacity:.55;cursor:not-allowed}
+.go.block{width:100%}
+.link{background:none;border:0;color:var(--accent);font-size:.95rem;font-weight:700;padding:4px 0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.danger{color:var(--err)}
+.spin{width:16px;height:16px;border:3px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.msg{min-height:1.4em;margin:14px 0 0;font-family:var(--head);font-weight:500}
+.msg.err{color:var(--err)} .msg.ok{color:var(--ok)}
+.note{color:var(--muted);font-size:.95rem;margin:14px 0 0}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:24px}
+.seg{display:flex;gap:4px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:20px}
+.seg button{flex:1;background:none;border:0;border-radius:8px;padding:10px;font-weight:700;color:var(--muted);cursor:pointer}
+.seg button[aria-selected="true"]{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+label{display:block;font-weight:700;font-size:.9rem;margin:0 0 6px}
+input{width:100%;font-size:1rem;padding:13px 14px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);margin-bottom:16px}
+input:focus{border-color:var(--accent)}
+.center{display:grid;place-items:center;min-height:50vh;text-align:center;color:var(--muted);gap:12px}
+
+/* Subscribe */
+.price{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 6px}
+.price b{font:800 2.6rem/1 var(--head);color:var(--accent)}
+.perks{list-style:none;padding:0;margin:18px 0 22px;display:grid;gap:8px}
+.perks li{padding-left:28px;position:relative}
+.perks li::before{content:"";position:absolute;left:4px;top:.45em;width:12px;height:7px;border-left:3px solid var(--accent);border-bottom:3px solid var(--accent);transform:rotate(-45deg)}
+#paypal-btn{min-height:50px;margin-top:6px}
+
+/* Account */
+.rows{margin:0;display:grid;gap:0}
+.rows div{display:flex;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+.rows div:last-child{border:0}
+.rows dt{color:var(--muted);font-family:var(--head);font-weight:500}
+.rows dd{margin:0;font-weight:600;text-align:right;overflow-wrap:anywhere}
+.pill{display:inline-block;padding:2px 12px;border-radius:999px;background:var(--mark);font-family:var(--head);font-weight:700;font-size:.9rem}
+.stack{display:grid;gap:10px;margin-top:22px}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:13px 20px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;font-size:1rem}
+
+/* Notebook page */
+.page{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+textarea{display:block;width:100%;min-height:260px;resize:vertical;border:0;background:transparent;color:var(--ink);
+  font:inherit;line-height:32px;padding:16px 18px 16px 58px;
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 31px,var(--line) 31px,var(--line) 32px);
+  background-attachment:local;background-position:0 15px}
+.page::before{content:"";position:absolute;left:44px;top:0;bottom:0;width:2px;background:var(--margin);opacity:.7;pointer-events:none}
+textarea::placeholder{color:var(--muted)}
+.page:focus-within{border-color:var(--accent)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+.left{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:.9rem}
+
+/* Results */
+#results{margin-top:30px}
+h2{font-size:1.2rem;font-weight:700;margin:34px 0 12px}
+#results>h2:first-child{margin-top:0}
+.summary{font-size:1.2rem;line-height:1.6;margin:0;background:var(--card);border:1px solid var(--line);border-left:6px solid var(--accent);
+  border-radius:4px 14px 14px 4px;padding:18px 20px;box-shadow:var(--shadow)}
+.keywords{display:flex;flex-wrap:wrap;gap:8px 6px;padding:0;margin:0;list-style:none}
+.keywords li{font-family:var(--head);font-weight:700;padding:0 8px;background:linear-gradient(transparent 42%,var(--mark) 42%,var(--mark) 92%,transparent 92%)}
+.defs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:0}
+.def{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.def dt{font-family:var(--head);font-weight:700;color:var(--accent)}
+.def dd{margin:4px 0 0;color:var(--muted);font-size:1rem;line-height:1.5}
+.hint{color:var(--muted);font-size:.95rem;margin:0 0 12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.card{perspective:900px;background:none;border:0;padding:0;text-align:left;font:inherit;color:inherit;cursor:pointer;min-height:130px;display:grid}
+.inner{display:grid;transition:transform .5s cubic-bezier(.3,.7,.2,1);transform-style:preserve-3d;border-radius:12px}
+.card.open .inner{transform:rotateY(180deg)}
+.face{grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid var(--line);border-radius:12px;padding:16px;
+  display:flex;flex-direction:column;justify-content:center;gap:6px;background:var(--card);box-shadow:var(--shadow)}
+.face small{font-family:var(--head);font-weight:700;color:var(--muted);font-size:.8rem}
+.back{transform:rotateY(180deg);background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.back small{color:inherit;opacity:.8}
+.actions{margin-top:30px}
+@media (prefers-reduced-motion:reduce){.inner{transition:none}.spin{animation:none}}
+@media (prefers-reduced-motion:no-preference){
+  .screen:not([hidden]){animation:rise .4s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+}
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <p class="brand">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 15C13 7 6 5 4 7c-2 3 0 9 5 10-4 1-5 5-3 8 3 2 8-1 10-6 2 5 7 8 10 6 2-3 1-7-3-8 5-1 7-7 5-10-2-2-9 0-12 8Z" fill="currentColor" opacity=".9"/><path d="M16 12v14" stroke="var(--paper)" stroke-width="1.6" stroke-linecap="round"/></svg>
+      SummerAI
+    </p>
+    <nav id="nav" aria-label="Main" hidden>
+      <button type="button" data-go="app">Notes</button>
+      <button type="button" data-go="account">Account</button>
+    </nav>
+  </header>
+
+  <!-- Loading -->
+  <section class="screen center" id="s-loading" aria-live="polite">
+    <span class="spin" style="width:28px;height:28px"></span>
+    <p id="loadMsg">Loading…</p>
+    <button class="link" id="retry" type="button" hidden>Try again</button>
+  </section>
+
+  <!-- Sign in / sign up -->
+  <section class="screen" id="s-auth" hidden>
+    <h1>Paste messy notes. Get the clear version.</h1>
+    <p class="sub">Sign in to start your 3-day free trial.</p>
+    <div class="panel">
+      <div class="seg" role="tablist">
+        <button type="button" role="tab" id="m-in" aria-selected="true">Sign in</button>
+        <button type="button" role="tab" id="m-up" aria-selected="false">Create account</button>
+      </div>
+      <form id="authForm" novalidate>
+        <div id="fEmail"><label for="email">Email</label>
+        <input id="email" type="email" autocomplete="email" inputmode="email" required></div>
+        <div id="fPass"><label for="pass">Password</label>
+        <input id="pass" type="password" autocomplete="current-password" minlength="6" required></div>
+        <div id="fNew" hidden><label for="newpass">New password</label>
+        <input id="newpass" type="password" autocomplete="new-password" minlength="6"></div>
+        <button class="go block" id="authBtn" type="submit">Sign in</button>
+      </form>
+      <p class="msg" id="authMsg" role="alert"></p>
+      <button class="link" id="forgot" type="button">Forgot your password?</button>
+    </div>
+  </section>
+
+  <!-- Subscribe -->
+  <section class="screen" id="s-subscribe" hidden>
+    <h1>Start your 3 days free.</h1>
+    <p class="sub">Try everything first. You’re only charged if you keep going.</p>
+    <div class="panel">
+      <p class="price"><b>$4.99</b><span>per month, after your free trial</span></p>
+      <ul class="perks">
+        <li>Clear summaries of any notes</li>
+        <li>Key words and plain-English definitions</li>
+        <li>Flashcards to test yourself</li>
+        <li>Cancel anytime from your account</li>
+      </ul>
+      <div id="paypal-btn"></div>
+      <p class="msg" id="payMsg" role="alert"></p>
+    </div>
+    <p class="note">Signed in as <span id="subEmail"></span>. <button class="link" id="subOut" type="button">Log out</button></p>
+  </section>
+
+  <!-- Summariser -->
+  <section class="screen" id="s-app" hidden>
+    <h1>Paste messy notes. Get the clear version.</h1>
+    <p class="sub">A short summary, the key words, plain-English definitions and flashcards to test yourself.</p>
+
+    <div class="page">
+      <label for="notes" hidden>Your notes</label>
+      <textarea id="notes" placeholder="Paste your notes here…"></textarea>
+    </div>
+    <div class="bar">
+      <div class="left">
+        <span id="count">0 characters</span>
+        <button class="link" id="example" type="button">Try an example</button>
+        <button class="link" id="clear" type="button" hidden>Clear</button>
+      </div>
+      <button class="go" id="go" type="button" disabled>Summarise notes</button>
+    </div>
+    <p class="msg err" id="error" role="alert"></p>
+    <p class="note" id="wait" hidden>Working on it. The first summary can take a little while.</p>
+
+    <section id="results" hidden>
+      <h2>Summary</h2>
+      <p class="summary" id="summary"></p>
+      <h2>Key words</h2>
+      <ul class="keywords" id="keywords"></ul>
+      <h2>Definitions</h2>
+      <dl class="defs" id="definitions"></dl>
+      <h2>Flashcards</h2>
+      <p class="hint">Tap a card to flip it.</p>
+      <div class="cards" id="flashcards"></div>
+      <div class="actions"><button class="link" id="copy" type="button">Copy summary, key words and definitions</button></div>
+    </section>
+  </section>
+
+  <!-- Account -->
+  <section class="screen" id="s-account" hidden>
+    <h1>Your account</h1>
+    <p class="sub">Your plan and sign-in details.</p>
+    <div class="panel">
+      <dl class="rows">
+        <div><dt>Email</dt><dd id="accEmail"></dd></div>
+        <div><dt>Plan</dt><dd id="accPlan">SummerAI, $4.99/month</dd></div>
+        <div><dt>Status</dt><dd><span class="pill" id="accStatus"></span></dd></div>
+        <div><dt>Next payment</dt><dd id="accNext">–</dd></div>
+      </dl>
+      <div class="stack">
+        <a class="ghost" href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener">Manage payments on PayPal</a>
+        <button class="ghost danger" id="cancelSub" type="button">Cancel subscription</button>
+        <button class="go block" id="logout" type="button">Log out</button>
+      </div>
+      <p class="msg" id="accMsg" role="alert"></p>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ================= Settings ================= */
+const API_URL = "https://noter-ld1u.onrender.com";
+const PAYPAL_CLIENT_ID = "BAA8bGxWP8Qy_Un_xkAGO7LDioFhOoTSq6yH36DUff3ELNK8-M_Y-KFk7SWBsWZean7p4K4NbZgcSzMRrc";
+const PAYPAL_PLAN_ID = "P-77962500CT432415VNLNGIJA";
+/* ============================================ */
+
+const $ = id => document.getElementById(id);
+const screens = ["loading","auth","subscribe","app","account"];
+let user = null, access = null, authMode = "in", payReady = false, last = null, recoveryToken = null;
+
+function el(tag, text, cls){
+  const e = document.createElement(tag);
+  if (text !== undefined) e.textContent = text; // textContent keeps AI output safe
+  if (cls) e.className = cls;
+  return e;
+}
+function show(name){
+  screens.forEach(s => $("s-" + s).hidden = s !== name);
+  $("nav").hidden = !(name === "app" || name === "account");
+  document.querySelectorAll("#nav button").forEach(b =>
+    b.dataset.go === name ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  window.scrollTo(0, 0);
+  if (name === "account") renderAccount();
+  if (name === "subscribe") { $("subEmail").textContent = user ? user.email : ""; $("payMsg").textContent = ""; loadPayPal(); }
+}
+function say(id, text, kind){ const m = $(id); m.textContent = text || ""; m.className = "msg" + (kind ? " " + kind : ""); }
+
+/* ---------- Session (login happens through the backend) ---------- */
+const SKEY = "myjarvis.session";
+function getSession(){ try { return JSON.parse(localStorage.getItem(SKEY)); } catch (e) { return null; } }
+function setSession(s){ try { s ? localStorage.setItem(SKEY, JSON.stringify(s)) : localStorage.removeItem(SKEY); } catch (e) {} }
+function storeSession(r){ setSession({ ...r.session, user: r.user }); }
+async function getToken(){
+  let s = getSession();
+  if (!s) return null;
+  if (s.expires_at * 1000 - Date.now() < 60000) {
+    try { const r = await api("/api/auth/refresh", { method: "POST", noAuth: true, body: { refresh_token: s.refresh_token } }); storeSession(r); s = getSession(); }
+    catch (e) { setSession(null); return null; }
+  }
+  return s.access_token;
+}
+
+/* ---------- API ---------- */
+async function api(path, opts = {}){
+  const token = opts.noAuth ? null : await getToken();
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 90000);
+  try {
+    const r = await fetch(API_URL + path, {
+      method: opts.method || "GET",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      signal: ctl.signal
+    });
+    let json = {};
+    try { json = await r.json(); } catch (e) {}
+    if (!r.ok) { const err = new Error(json.error || "Something went wrong. Please try again."); err.status = r.status; throw err; }
+    return json;
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("That took too long. Try again in a moment.");
+    if (e.message === "Failed to fetch") throw new Error("Couldn’t reach the server. Check your connection and try again.");
+    throw e;
+  } finally { clearTimeout(timer); }
+}
+
+/* ---------- Boot ---------- */
+async function boot(){
+  show("loading");
+  $("loadMsg").textContent = "Loading…"; $("retry").hidden = true;
+  const s = getSession();
+  if (!s) { user = null; return show("auth"); }
+  user = s.user;
+  const slow = setTimeout(() => $("loadMsg").textContent = "Waking the server. This can take up to a minute…", 3500);
+  try {
+    access = await api("/api/subscription/status");
+    clearTimeout(slow);
+    show(access.active ? "app" : "subscribe");
+  } catch (e) {
+    clearTimeout(slow);
+    if (e.status === 401) { setSession(null); return show("auth"); }
+    $("loadMsg").textContent = e.message; $("retry").hidden = false;
+  }
+}
+$("retry").addEventListener("click", boot);
+
+/* ---------- Auth ---------- */
+function setAuthMode(m){
+  authMode = m;
+  $("m-in").setAttribute("aria-selected", m === "in");
+  $("m-up").setAttribute("aria-selected", m === "up");
+  $("authBtn").textContent = m === "in" ? "Sign in" : "Create account";
+  $("pass").autocomplete = m === "in" ? "current-password" : "new-password";
+  $("forgot").hidden = m !== "in";
+  $("fEmail").hidden = $("fPass").hidden = false; $("fNew").hidden = true;
+  say("authMsg", "");
+}
+$("m-in").addEventListener("click", () => setAuthMode("in"));
+$("m-up").addEventListener("click", () => setAuthMode("up"));
+
+$("authForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = $("authBtn"), label = btn.textContent;
+  say("authMsg", "");
+  btn.disabled = true; btn.replaceChildren(el("span", undefined, "spin"));
+  try {
+    if (authMode === "reset") {
+      const pw = $("newpass").value;
+      if (pw.length < 6) throw new Error("Use at least 6 characters.");
+      await api("/api/auth/reset", { method: "POST", noAuth: true, body: { access_token: recoveryToken, password: pw } });
+      $("newpass").value = ""; recoveryToken = null; history.replaceState(null, "", location.pathname);
+      setAuthMode("in"); say("authMsg", "Password updated. Sign in with your new password.", "ok");
+      return;
+    }
+    const email = $("email").value.trim(), password = $("pass").value;
+    if (!email || !password) throw new Error("Enter your email and password.");
+    if (authMode === "up") {
+      if (password.length < 6) throw new Error("Use at least 6 characters.");
+      const r = await api("/api/auth/signup", { method: "POST", noAuth: true, body: { email, password } });
+      if (!r.session) { setAuthMode("in"); say("authMsg", "Check your email to confirm your account, then sign in.", "ok"); return; }
+      storeSession(r);
+    } else {
+      storeSession(await api("/api/auth/login", { method: "POST", noAuth: true, body: { email, password } }));
+    }
+    $("pass").value = "";
+    await boot();
+  } catch (err) {
+    say("authMsg", err.message === "Invalid login credentials" ? "That email and password don’t match." : err.message, "err");
+  } finally {
+    btn.disabled = false; btn.textContent = authMode === "reset" ? "Save new password" : authMode === "up" ? "Create account" : "Sign in";
+  }
+});
+
+$("forgot").addEventListener("click", async () => {
+  const email = $("email").value.trim();
+  if (!email) return say("authMsg", "Type your email above first.", "err");
+  try {
+    await api("/api/auth/forgot", { method: "POST", noAuth: true, body: { email, redirectTo: location.origin + location.pathname } });
+    say("authMsg", "If that email has an account, a reset link is on its way.", "ok");
+  } catch (e) { say("authMsg", e.message, "err"); }
+});
+
+async function logout(){ setSession(null); user = access = null; $("results").hidden = true; $("notes").value = ""; syncNotes(); show("auth"); }
+$("logout").addEventListener("click", logout);
+$("subOut").addEventListener("click", logout);
+
+/* ---------- Navigation ---------- */
+document.querySelectorAll("#nav button").forEach(b => b.addEventListener("click", () => show(b.dataset.go)));
+
+/* ---------- PayPal ---------- */
+function loadPayPal(){
+  if (payReady) return;
+  if (document.getElementById("pp-sdk")) return;
+  const s = document.createElement("script");
+  s.id = "pp-sdk";
+  s.src = "https://www.paypal.com/sdk/js?client-id=" + PAYPAL_CLIENT_ID + "&vault=true&intent=subscription";
+  s.onload = renderPayPal;
+  s.onerror = () => { s.remove(); say("payMsg", "Couldn’t load PayPal. Check your connection and reload.", "err"); };
+  document.head.appendChild(s);
+}
+function renderPayPal(){
+  if (payReady || !window.paypal) return;
+  payReady = true;
+  paypal.Buttons({
+    style: { shape: "rect", color: "gold", layout: "vertical", label: "subscribe" },
+    createSubscription: (data, actions) => actions.subscription.create({ plan_id: PAYPAL_PLAN_ID, custom_id: user.id }),
+    onApprove: async data => {
+      say("payMsg", "Confirming your trial…");
+      for (let i = 0; i < 5; i++) {
+        try {
+          access = await api("/api/subscription/activate", { method: "POST", body: { subscriptionID: data.subscriptionID } });
+          say("payMsg", "");
+          return show("app");
+        } catch (e) {
+          if (e.status !== 400 || i === 4) return say("payMsg", e.message + " If you were charged or approved, reload this page.", "err");
+          await new Promise(r => setTimeout(r, 2000)); // PayPal can take a moment to mark it active
+        }
+      }
+    },
+    onError: () => say("payMsg", "PayPal ran into a problem. Please try again.", "err"),
+    onCancel: () => say("payMsg", "Checkout cancelled. You haven’t been charged.")
+  }).render("#paypal-btn");
+}
+
+/* ---------- Account ---------- */
+const STATUS = { ACTIVE: "Active", SUSPENDED: "Paused", CANCELLED: "Cancelled", EXPIRED: "Expired", NONE: "No plan", APPROVAL_PENDING: "Pending" };
+function fillAccount(a){
+  const free = !!(a && a.free);
+  $("accStatus").textContent = free ? "Free access" : (STATUS[a ? a.status : "NONE"] || (a && a.status));
+  $("accPlan").textContent = free ? "SummerAI, free" : "SummerAI, $4.99/month";
+  $("accNext").textContent = a && a.nextBillingTime
+    ? new Date(a.nextBillingTime).toLocaleDateString(undefined, { dateStyle: "long" }) : "–";
+  $("cancelSub").hidden = !(a && a.active && !free);
+}
+function renderAccount(){
+  $("accEmail").textContent = user ? user.email : "";
+  fillAccount(access);
+  say("accMsg", "");
+  api("/api/subscription/status").then(a => { access = a; fillAccount(a); }).catch(() => {});
+}
+$("cancelSub").addEventListener("click", async () => {
+  if (!confirm("Cancel your subscription? You’ll lose access to SummerAI.")) return;
+  const b = $("cancelSub"); b.disabled = true;
+  try {
+    access = await api("/api/subscription/cancel", { method: "POST" });
+    if (!access.active) { payReady = false; $("paypal-btn").replaceChildren(); return show("subscribe"); }
+    renderAccount();
+  } catch (e) { say("accMsg", e.message, "err"); }
+  finally { b.disabled = false; }
+});
+
+/* ---------- Summariser ---------- */
+const notes = $("notes"), go = $("go");
+function syncNotes(){
+  const n = notes.value.length;
+  $("count").textContent = n.toLocaleString() + (n === 1 ? " character" : " characters");
+  go.disabled = !notes.value.trim();
+  $("clear").hidden = !n;
+}
+notes.addEventListener("input", syncNotes);
+$("example").addEventListener("click", () => {
+  notes.value = "Photosynthesis is how plants make food. Chlorophyll in the chloroplasts absorbs sunlight. The light reactions split water and release oxygen, making ATP and NADPH. The Calvin cycle then uses that ATP and NADPH to turn carbon dioxide into glucose. Stomata let CO2 in and oxygen out. Rate depends on light, CO2 and temperature.";
+  syncNotes(); notes.focus();
+});
+$("clear").addEventListener("click", () => { notes.value = ""; syncNotes(); $("results").hidden = true; $("error").textContent = ""; notes.focus(); });
+
+function render(d){
+  $("summary").textContent = d.summary || "";
+  const kw = $("keywords"); kw.replaceChildren();
+  (d.keywords || []).forEach(k => kw.append(el("li", k)));
+  const defs = $("definitions"); defs.replaceChildren();
+  (d.definitions || []).forEach(x => { const box = el("div", undefined, "def"); box.append(el("dt", x.term), el("dd", x.definition)); defs.append(box); });
+  const fc = $("flashcards"); fc.replaceChildren();
+  (d.flashcards || []).forEach(x => {
+    const b = el("button", undefined, "card"); b.type = "button"; b.setAttribute("aria-pressed", "false");
+    const inner = el("span", undefined, "inner");
+    const front = el("span", undefined, "face front"); front.append(el("small", "Question"), el("b", x.q));
+    const back = el("span", undefined, "face back"); back.append(el("small", "Answer"), el("span", x.a));
+    inner.append(front, back); b.append(inner);
+    b.addEventListener("click", () => b.setAttribute("aria-pressed", b.classList.toggle("open")));
+    fc.append(b);
+  });
+  last = d;
+  $("results").hidden = false;
+  $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+go.addEventListener("click", async () => {
+  $("error").textContent = "";
+  go.disabled = true;
+  go.replaceChildren(el("span", undefined, "spin"), document.createTextNode("Summarising…"));
+  $("wait").hidden = false;
+  try {
+    render(await api("/api/summarise", { method: "POST", body: { notes: notes.value } }));
+  } catch (e) {
+    if (e.status === 401) { setSession(null); return show("auth"); }
+    if (e.status === 402) { show("subscribe"); return say("payMsg", e.message, "err"); }
+    $("error").textContent = e.message;
+  } finally {
+    $("wait").hidden = true; go.textContent = "Summarise notes"; syncNotes();
+  }
+});
+
+$("copy").addEventListener("click", async () => {
+  if (!last) return;
+  const txt = "Summary\n" + (last.summary || "") + "\n\nKey words\n" + (last.keywords || []).join(", ") +
+    "\n\nDefinitions\n" + (last.definitions || []).map(x => x.term + ": " + x.definition).join("\n");
+  const b = $("copy"), old = b.textContent;
+  try { await navigator.clipboard.writeText(txt); b.textContent = "Copied"; } catch (e) { b.textContent = "Copy failed"; }
+  setTimeout(() => b.textContent = old, 1800);
+});
+
+/* ---------- Start ---------- */
+fetch(API_URL, { mode: "no-cors" }).catch(() => {}); // wake the Render server early
+const hp = new URLSearchParams(location.hash.slice(1));
+if (hp.get("type") === "recovery" && hp.get("access_token")) {   // arrived from a password-reset email
+  recoveryToken = hp.get("access_token");
+  show("auth"); authMode = "reset";
+  $("fEmail").hidden = $("fPass").hidden = true; $("fNew").hidden = false;
+  $("authBtn").textContent = "Save new password"; $("forgot").hidden = true;
+  $("m-in").setAttribute("aria-selected", "false");
+  say("authMsg", "Choose a new password.");
+} else { boot(); }
+syncNotes();
+</script>
+</body>
+</html>
